@@ -76,7 +76,6 @@ cron.schedule('59 23 * * *', async () => {
 });
 
 const express = require('express');
-
 // Access the underlying express app
 const receiver = app.receiver;
 const expressApp = receiver.app;
