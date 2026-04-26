@@ -1,10 +1,15 @@
 require('dotenv').config();
 
-const { App } = require('@slack/bolt');
+const { App, ExpressReceiver } = require('@slack/bolt');
+
+// Use ExpressReceiver so we can add custom routes
+const receiver = new ExpressReceiver({
+  signingSecret: process.env.SIGNING_SECRET,
+});
 
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
-  signingSecret: process.env.SIGNING_SECRET,
+  receiver,
 });
 
 // 🔢 Parse Wordle score
@@ -14,7 +19,7 @@ function parseWordle(text) {
   return match[1] === 'X' ? 7 : parseInt(match[1], 10);
 }
 
-// 📊 Generate leaderboard
+// 📊 Generate leaderboard from the last 24 hours
 async function generateLeaderboard(channelId) {
   const result = await app.client.conversations.history({
     channel: channelId,
@@ -23,12 +28,20 @@ async function generateLeaderboard(channelId) {
 
   const scores = {};
 
+  // Only include messages from today (midnight onwards)
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const midnightTs = todayStart.getTime() / 1000;
+
   for (const msg of result.messages) {
+    if (parseFloat(msg.ts) < midnightTs) continue;
+
     const score = parseWordle(msg.text);
     if (!score) continue;
 
     const user = msg.user;
 
+    // Keep best (lowest) score per user
     if (!scores[user] || score < scores[user]) {
       scores[user] = score;
     }
@@ -39,6 +52,10 @@ async function generateLeaderboard(channelId) {
 
 // 🧾 Format leaderboard
 function formatLeaderboard(data) {
+  if (data.length === 0) {
+    return "*📊 Wordle Leaderboard*\n\nNo scores recorded in the last 24 hours!";
+  }
+
   let text = "*📊 Wordle Leaderboard*\n\n";
 
   data.forEach(([user, score], i) => {
@@ -48,7 +65,8 @@ function formatLeaderboard(data) {
       rank === 2 ? "🥈" :
       rank === 3 ? "🥉" : `${rank}.`;
 
-    text += `${medal} <@${user}> — ${score}/6\n`;
+    const displayScore = score === 7 ? "X" : score;
+    text += `${medal} <@${user}> — ${displayScore}/6\n`;
   });
 
   return text;
@@ -89,22 +107,16 @@ const replies = {
   7: ["💀"]
 };
 
-// 🧠 Track last leaderboard day (in-memory)
-let lastLeaderboardDate = null;
-
-// 🎯 Handle messages
+// 🎯 Handle Wordle messages
 app.message(async ({ message, client }) => {
   try {
-    // Ignore non-user messages
     if (message.subtype || !message.text) return;
-
-    // Ignore thread replies
     if (message.thread_ts) return;
 
     const score = parseWordle(message.text);
     if (!score) return;
 
-    // 🎲 Reply randomly
+    // 🎲 Reply with a random reaction
     const options = replies[score];
     const reply = options[Math.floor(Math.random() * options.length)];
 
@@ -114,23 +126,43 @@ app.message(async ({ message, client }) => {
       thread_ts: message.ts,
     });
 
-    // 📅 Leaderboard trigger (once per day)
-    const today = new Date().toDateString();
-
-    if (lastLeaderboardDate !== today) {
-      lastLeaderboardDate = today;
-
-      const leaderboard = await generateLeaderboard(message.channel);
-      const leaderboardMessage = formatLeaderboard(leaderboard);
-
-      await client.chat.postMessage({
-        channel: message.channel,
-        text: leaderboardMessage,
-      });
-    }
-
   } catch (err) {
     console.error("Message handler error:", err);
+  }
+});
+
+// 🕛 HTTP endpoint triggered by an external cron service (e.g. cron-job.org)
+// Set up a daily cron job to GET: https://your-app.onrender.com/post-leaderboard?secret=YOUR_SECRET
+// Schedule it for 11:59 PM in your timezone.
+//
+// Required env vars:
+//   WORDLE_CHANNEL_ID — the Slack channel ID to post the leaderboard in
+//   CRON_SECRET      — a secret token to protect this endpoint
+receiver.router.get('/post-leaderboard', async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+
+  if (secret && req.query.secret !== secret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const channelId = process.env.WORDLE_CHANNEL_ID;
+  if (!channelId) {
+    return res.status(500).json({ error: 'WORDLE_CHANNEL_ID env var not set' });
+  }
+
+  try {
+    const leaderboard = await generateLeaderboard(channelId);
+    const leaderboardMessage = formatLeaderboard(leaderboard);
+
+    await app.client.chat.postMessage({
+      channel: channelId,
+      text: leaderboardMessage,
+    });
+
+    res.json({ ok: true, entries: leaderboard.length });
+  } catch (err) {
+    console.error("Leaderboard post error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
