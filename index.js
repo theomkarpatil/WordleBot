@@ -75,8 +75,23 @@ cron.schedule('59 23 * * *', async () => {
     timezone: "Asia/Kolkata"
 });
 
+const express = require('express');
+
+// Access the underlying express app
+const receiver = app.receiver;
+const expressApp = receiver.app;
+
+// ✅ Register BEFORE app.start()
+expressApp.post('/slack/events', (req, res, next) => {
+    if (req.body && req.body.type === 'url_verification') {
+        return res.status(200).json({ challenge: req.body.challenge });
+    }
+    next();
+});
+
+// Start app
 (async () => {
-    await app.start(3000);
+    await app.start(process.env.PORT || 3000);
     console.log("Bot is running");
 })();
 
