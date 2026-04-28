@@ -14,10 +14,9 @@ const app = new App({
 
 // 🔢 Parse Wordle score
 function parseWordle(text) {
-    const match = text.match(/wordle.*?\b(X|\d)\/6\b/i);
-    if (!match) return null;
-
-    return match[1] === 'X' ? 7 : parseInt(match[1], 10);
+  const match = text.match(/Wordle\s+\d+\s+(X|\d)\/6/);
+  if (!match) return null;
+  return match[1] === 'X' ? 7 : parseInt(match[1], 10);
 }
 
 // 📊 Generate leaderboard from the last 24 hours
@@ -78,32 +77,62 @@ const replies = {
   1: [
     "No. F***ing. Way!",
     "What is the GOD mode sh*t you're doing?",
-    "People, I think it's time we quit!"
+    "People, I think it's time we quit!",
+    "Hadd hoti hai yaar!",
+    "ALERT! ALERT! WE HAVE A HACKER IN HERE!!",
+    "Hadd hoti hai yaar!",
+    "Hadd hoti hai yaar!",
+    "No. F***ing. Way!"
   ],
   2: [
     "Oh bullS*******t",
     "Chal ae ae ae, kuch bhi, cheating mat kar!",
-    "Bhai sahaaaaaab!"
+    "Bhai sahaaaaaab!",
+    "Bro you hackin' on some shizz?",
+    "DAAAAAYAMN SON!",
+    "Yaaar hatao isko, 2 me kaun solve karta hai?",
+    "Brrrt Brrrt, god gamer alert, god gamer detected, brrrt!",
+    "Macha, chill da!"
   ],
   3: [
     "Lezzz goooooo!",
     "Dayammnnnnn bro!",
-    "Wow, someone's having a good morning!"
+    "Wow, someone's having a good day!",
+    "Watch out, we got a bada** over here!",
+    "Deva re deva, porga lay bhaari nighalay!",
+    "You don't gotta be that good bro!",
+    "Bhai mere, 3 me toh ye me bhi solve nahi kar pata!",
+    "Too easy, right? Yeah, we be smort!"
   ],
   4: [
     "Cute!",
     "Ohhhhh noice!",
-    "Isko award do koi!!"
+    "Isko award do koi!!",
+    "Yaaaaaar almost 3 me ho gaya tha!",
+    "4 bottle vodka, wordle mera rozz ka!",
+    "Wordle ke hai 4 guess, oh oh oh ooooooo oo!",
+    "4eva young, I wanna be, 4eva yooooung!",
+    "The 4 horsemen of apocalypse got nothin' on your 4 words bro!"
   ],
   5: [
-    "You got this bro!",
+    "You got this bro, ishhokay!",
     "Hmmmm, sh*t happens!",
-    "Boy, that's rough!"
+    "Boy, that's rough!",
+    "Come here baby, lemme give you a huggy wuggy!",
+    "Ye sub sehne ke baad 8 ghante kaam karna hai jee!",
+    "Look to your left, look to your right, I'm pretty sure they did better than you today!",
+    "Hota hai bro, hota hai! When life gives you lemons, squash them with your feet 'cause you clearly can't squash wordle!",
+    "Yaai re yaai re, phone utha ke phek reee!"
   ],
   6: [
     "Ouch, that... yeah, that hurts",
     "Aaaii gaaaaaa!! 💀",
-    "Do you need a hug bro?"
+    "Do you need a hug bro?",
+    "There once was a very old man who lived by himself with no one to love, and even his pet cow didn't like him back. He would hike down the mountain to sell milk but barely anyone ever bought it. He would be sad and helpless but even he wasn't having a day as bad as you are today!",
+    "Come here baby, my babyyyy awwwlele I'll give you a hug!",
+    "Arjun and Meera grew up sharing lunches, secrets, and dreams under the same old banyan tree. As years passed, Arjun carried a love he never voiced, afraid of losing the only home he knew. One evening, he finally confessed, hands trembling, heart open. Meera listened, eyes kind but distant, and spoke of another life she had already chosen. They smiled through the ache, promising to remain friends, but silence slowly replaced laughter. Seasons changed, the tree stood still, and Arjun sat alone, realizing some stories don’t end loudly, only fade into absence. He kept her name, but lost everything else. \n\n I was just trying to distract you from what you've been through today with this sad little story /:)",
+    "Hota hai bro, hota hai, ab kya kare? I mean, the terrace up there has no guard-rails, but yaar kya, hi, kare?",
+    "Whoa whoa whoa hey, hey, don't blame yourself! We all have a certain mental capacity, its okay my child."
   ],
   7: ["💀"]
 };
@@ -112,6 +141,7 @@ const replies = {
 app.message(async ({ message, client }) => {
   try {
     if (message.subtype || !message.text) return;
+    if (message.bot_id || message.app_id) return;
     if (message.thread_ts) return;
 
     const score = parseWordle(message.text);
@@ -130,6 +160,12 @@ app.message(async ({ message, client }) => {
   } catch (err) {
     console.error("Message handler error:", err);
   }
+});
+
+// 🏓 Keep-alive ping — hit this every 10-14 mins via cron-job.org
+// to prevent Render free tier from spinning down
+receiver.router.get('/ping', (req, res) => {
+  res.json({ ok: true });
 });
 
 // 🕛 HTTP endpoint triggered by an external cron service (e.g. cron-job.org)
