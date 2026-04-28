@@ -58,8 +58,12 @@ function formatLeaderboard(data) {
 
   let text = "*📊 Wordle Leaderboard*\n\n";
 
+  let rank = 1;
   data.forEach(([user, score], i) => {
-    const rank = i + 1;
+    if (i > 0 && score !== data[i - 1][1]) {
+      rank = i + 1;
+    }
+
     const medal =
       rank === 1 ? "🥇" :
       rank === 2 ? "🥈" :
@@ -99,7 +103,7 @@ const replies = {
     "Dayammnnnnn bro!",
     "Wow, someone's having a good day!",
     "Watch out, we got a bada** over here!",
-    "Deva re deva, porga lay bhaari nighalay!",
+    "Deva re deva, yo tar lay bhaari nighalay!",
     "You don't gotta be that good bro!",
     "Bhai mere, 3 me toh ye me bhi solve nahi kar pata!",
     "Too easy, right? Yeah, we be smort!"
@@ -115,14 +119,17 @@ const replies = {
     "The 4 horsemen of apocalypse got nothin' on your 4 words bro!"
   ],
   5: [
-    "You got this bro, ishhokay!",
+    "You got this broooooo, you goooooooooot this, ishhokay!",
     "Hmmmm, sh*t happens!",
     "Boy, that's rough!",
     "Come here baby, lemme give you a huggy wuggy!",
     "Ye sub sehne ke baad 8 ghante kaam karna hai jee!",
     "Look to your left, look to your right, I'm pretty sure they did better than you today!",
     "Hota hai bro, hota hai! When life gives you lemons, squash them with your feet 'cause you clearly can't squash wordle!",
-    "Yaai re yaai re, phone utha ke phek reee!"
+    "Yaai re yaai re, phone utha ke phek reee!",
+    "AATA! MAAZHI! SATAKLIIIIII!",
+    "Hey bhagwan, kyun hai ye berehem duniya!",
+    "Aaj raat me 4 baje tak piiega!"
   ],
   6: [
     "Ouch, that... yeah, that hurts",
@@ -132,7 +139,8 @@ const replies = {
     "Come here baby, my babyyyy awwwlele I'll give you a hug!",
     "Arjun and Meera grew up sharing lunches, secrets, and dreams under the same old banyan tree. As years passed, Arjun carried a love he never voiced, afraid of losing the only home he knew. One evening, he finally confessed, hands trembling, heart open. Meera listened, eyes kind but distant, and spoke of another life she had already chosen. They smiled through the ache, promising to remain friends, but silence slowly replaced laughter. Seasons changed, the tree stood still, and Arjun sat alone, realizing some stories don’t end loudly, only fade into absence. He kept her name, but lost everything else. \n\n I was just trying to distract you from what you've been through today with this sad little story /:)",
     "Hota hai bro, hota hai, ab kya kare? I mean, the terrace up there has no guard-rails, but yaar kya, hi, kare?",
-    "Whoa whoa whoa hey, hey, don't blame yourself! We all have a certain mental capacity, its okay my child."
+    "Whoa whoa whoa hey, hey, don't blame yourself! We all have a certain mental capacity, its okay my child.",
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHHHHHHHHHHHHHHH! You and I both bro, you and I both!"
   ],
   7: ["💀"]
 };
