@@ -14,9 +14,10 @@ const app = new App({
 
 // 🔢 Parse Wordle score
 function parseWordle(text) {
-  const match = text.match(/Wordle\s+\d+\s+(X|\d)\/6/);
-  if (!match) return null;
-  return match[1] === 'X' ? 7 : parseInt(match[1], 10);
+    const match = text.match(/wordle.*?\b(X|\d)\/6\b/i);
+    if (!match) return null;
+
+    return match[1] === 'X' ? 7 : parseInt(match[1], 10);
 }
 
 // 📊 Generate leaderboard from the last 24 hours
