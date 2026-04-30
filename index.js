@@ -15,6 +15,40 @@ const app = new App({
 // Cache bot user ID to avoid responding to own messages
 let botUserId;
 
+// 🛡️ Dedupe to avoid responding multiple times to the same event
+// Slack may redeliver the same message event (e.g. slow/cold start, transient timeouts).
+const processedMessages = new Map(); // key -> expiresAtMs
+const PROCESSED_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function dedupeKeyFromMessage(message) {
+  // Prefer client_msg_id when present; fall back to channel+ts.
+  // ts is unique per message within a channel.
+  const stableId = message.client_msg_id || message.ts;
+  return `${message.channel}:${stableId}`;
+}
+
+function markProcessed(key) {
+  processedMessages.set(key, Date.now() + PROCESSED_TTL_MS);
+}
+
+function alreadyProcessed(key) {
+  const expiresAt = processedMessages.get(key);
+  if (!expiresAt) return false;
+  if (expiresAt < Date.now()) {
+    processedMessages.delete(key);
+    return false;
+  }
+  return true;
+}
+
+// Periodic cleanup so the map doesn't grow forever
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, expiresAt] of processedMessages.entries()) {
+    if (expiresAt < now) processedMessages.delete(key);
+  }
+}, 60 * 1000).unref?.();
+
 // ✅ fix: ignore Slack retry requests (caused duplicate replies on slow cold starts)
 receiver.router.use((req, res, next) => {
   if (req.headers['x-slack-retry-num']) {
@@ -166,6 +200,11 @@ app.message(async ({ message, client }) => {
     const score = parseWordle(message.text);
     if (!score) return;
 
+    const key = dedupeKeyFromMessage(message);
+    if (alreadyProcessed(key)) return;
+    // Mark before posting to protect against near-simultaneous redeliveries.
+    markProcessed(key);
+
     // 🎲 Reply with a random reaction
     const options = replies[score];
     const reply = options[Math.floor(Math.random() * options.length)];
@@ -198,16 +237,16 @@ receiver.router.get('/post-leaderboard', async (req, res) => {
   const secret = process.env.CRON_SECRET;
 
   if (secret && req.query.secret !== secret) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.sendStatus(401);
   }
 
   const channelId = process.env.WORDLE_CHANNEL_ID;
   if (!channelId) {
-    return res.status(500).json({ error: 'WORDLE_CHANNEL_ID env var not set' });
+    return res.sendStatus(500);
   }
 
   // ✅ fix: respond immediately so cron-job.org doesn't time out on cold starts
-  res.json({ ok: true });
+  res.sendStatus(204); // No Content
 
   // ✅ fix: post to Slack in the background after responding
   try {
