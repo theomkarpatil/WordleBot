@@ -18,6 +18,17 @@ let botUserId;
 // Cache replies fetched from Google Sheet
 let replies = {};
 
+// 🛡️ Dedupe to avoid responding multiple times to the same message
+// (Slack can deliver the same event more than once; also protects against accidental double-processing)
+const processedMessageKeys = new Map(); // key -> expiresAtMs
+const DEDUPE_TTL_MS = 10 * 60 * 1000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, expiresAt] of processedMessageKeys.entries()) {
+    if (expiresAt <= now) processedMessageKeys.delete(key);
+  }
+}, 60 * 1000).unref?.();
+
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTq962wlfriHfnwYdfL6b_zjA1u8YoXA1IbW3YGE5vstCckHbdU4DFFQdNq2WZJGWfGKYHQ7qD_ApAs/pub?gid=0&single=true&output=csv';
 
 // 📥 Fetch and parse replies from Google Sheet CSV
@@ -147,6 +158,12 @@ app.message(async ({ message, client }) => {
     if (message.subtype || !message.text) return;
     if (message.user === botUserId) return; // ✅ fix: skip own messages
     if (message.thread_ts) return;
+
+    const messageKey = `${message.channel}:${message.user}:${message.ts}`;
+    const now = Date.now();
+    const existingExpiry = processedMessageKeys.get(messageKey);
+    if (existingExpiry && existingExpiry > now) return;
+    processedMessageKeys.set(messageKey, now + DEDUPE_TTL_MS);
 
     const score = parseWordle(message.text);
     if (!score) return;
